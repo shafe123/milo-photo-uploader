@@ -38,12 +38,37 @@ class ReinforcementFeedbackWorker(
             predictionIteration = record.iterationName,
         )
 
-        return if (uploaded != null) {
+        if (uploaded == null) {
+            dao.setReinforcementSyncStatus(recordId, ReinforcementStatus.FAILED, null)
+            Log.w(TAG, "Failed to upload reinforcement sample for record $recordId")
+            return Result.retry()
+        }
+
+        // Also update the original blob metadata with the corrected milo_detected value
+        val primaryUploader = AzureBlobUploader(
+            connectionString = BuildConfig.AZURE_STORAGE_CONNECTION_STRING,
+            containerName = BuildConfig.AZURE_STORAGE_CONTAINER,
+        )
+        
+        val miloDetected = when (correctedLabel) {
+            "milo", "both" -> "true"
+            "emilio", "neither" -> "false"
+            else -> record.isMiloDetected.toString() // Fallback
+        }
+
+        val metadataUpdated = primaryUploader.updateBlobMetadata(
+            blobName = record.azureBlobId,
+            metadata = mapOf("milo_detected" to miloDetected)
+        )
+
+        return if (metadataUpdated) {
             dao.setReinforcementSyncStatus(recordId, ReinforcementStatus.SYNCED, System.currentTimeMillis())
             Result.success()
         } else {
-            dao.setReinforcementSyncStatus(recordId, ReinforcementStatus.FAILED, null)
-            Log.w(TAG, "Failed to upload reinforcement sample for record $recordId")
+            // If metadata update fails, we retry the whole worker
+            // Note: This might result in duplicate feedback uploads, which is acceptable 
+            // compared to out-of-sync metadata.
+            Log.w(TAG, "Failed to update original blob metadata for record $recordId, retrying...")
             Result.retry()
         }
     }

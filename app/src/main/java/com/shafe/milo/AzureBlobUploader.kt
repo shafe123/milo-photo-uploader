@@ -119,6 +119,41 @@ class AzureBlobUploader(
         }.getOrNull()
     }
 
+    fun updateBlobMetadata(
+        blobName: String,
+        metadata: Map<String, String>
+    ): Boolean {
+        if (connectionString.isBlank()) {
+            Log.w(TAG, "Azure Storage not configured, skipping metadata update.")
+            return false
+        }
+
+        return runCatching {
+            val blobServiceClient = BlobServiceClientBuilder()
+                .connectionString(connectionString)
+                .buildClient()
+            val containerClient = blobServiceClient.getBlobContainerClient(containerName)
+            val blobClient = containerClient.getBlobClient(blobName)
+
+            if (!blobClient.exists()) {
+                Log.w(TAG, "Blob $blobName does not exist in $containerName, cannot update metadata.")
+                return false
+            }
+
+            // Get existing metadata and merge
+            val existingMetadata = blobClient.properties.metadata ?: mutableMapOf()
+            val newMetadata = existingMetadata.toMutableMap().apply {
+                putAll(metadata)
+            }
+
+            blobClient.setMetadata(newMetadata)
+            Log.i(TAG, "Updated metadata for $blobName in $containerName: $metadata")
+            true
+        }.onFailure {
+            Log.e(TAG, "Failed to update metadata for blob $blobName", it)
+        }.getOrDefault(false)
+    }
+
     private fun getFileName(context: Context, uri: Uri): String? {
         if (uri.scheme == "content") {
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
