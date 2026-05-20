@@ -63,6 +63,58 @@ class AzureBlobUploader(
         }.getOrNull()
     }
 
+    fun uploadFeedbackSample(
+        photoUri: Uri,
+        context: Context,
+        correctedLabel: String,
+        originalBlobId: String,
+        predictionDetectedMilo: Boolean,
+        predictionConfidence: Double,
+        predictionIteration: String,
+    ): String? {
+        if (connectionString.isBlank()) {
+            Log.w(TAG, "Azure Storage not configured, skipping reinforcement upload.")
+            return null
+        }
+
+        return runCatching {
+            val blobServiceClient = BlobServiceClientBuilder()
+                .connectionString(connectionString)
+                .buildClient()
+            val containerClient = blobServiceClient.getBlobContainerClient(containerName)
+            if (!containerClient.exists()) {
+                containerClient.create()
+            }
+
+            val fileName = getFileName(context, photoUri)
+                ?: photoUri.lastPathSegment
+                ?: "photo_${System.currentTimeMillis()}.jpg"
+            val blobName = "feedback/${System.currentTimeMillis()}_${correctedLabel}_$fileName"
+            val blobClient = containerClient.getBlobClient(blobName)
+
+            context.contentResolver.openInputStream(photoUri)?.use { inputStream ->
+                val length = inputStream.available().toLong()
+                blobClient.upload(inputStream, length, true)
+            }
+
+            val metadata = mapOf(
+                "corrected_label" to correctedLabel,
+                "source_blob_id" to originalBlobId,
+                "predicted_milo" to predictionDetectedMilo.toString(),
+                "prediction_confidence" to "%.4f".format(predictionConfidence),
+                "prediction_iteration" to predictionIteration,
+            )
+            blobClient.setMetadata(metadata)
+            val contentType = context.contentResolver.getType(photoUri) ?: "image/jpeg"
+            blobClient.setHttpHeaders(BlobHttpHeaders().setContentType(contentType))
+
+            Log.i(TAG, "Uploaded reinforcement sample $blobName with metadata: $metadata")
+            blobName
+        }.onFailure {
+            Log.e(TAG, "Failed to upload reinforcement sample", it)
+        }.getOrNull()
+    }
+
     private fun getFileName(context: Context, uri: Uri): String? {
         if (uri.scheme == "content") {
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->

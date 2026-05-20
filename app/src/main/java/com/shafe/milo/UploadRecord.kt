@@ -11,5 +11,15 @@ data class UploadRecord(
     val confidence: Double,
     val isMiloDetected: Boolean,
     val iterationName: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val correctedLabel: String? = null,
+    val reinforcementStatus: String = ReinforcementStatus.NONE,
+    val reinforcementSyncedAt: Long? = null,
 )
+
+object ReinforcementStatus {
+    const val NONE = "none"
+    const val PENDING = "pending"
+    const val SYNCED = "synced"
+    const val FAILED = "failed"
+}
