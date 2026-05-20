@@ -35,6 +35,7 @@ android {
         buildConfigField("double", "AZURE_THRESHOLD", getSecret("AZURE_THRESHOLD", "0.8"))
         buildConfigField("String", "AZURE_STORAGE_CONNECTION_STRING", "\"${getSecret("AZURE_STORAGE_CONNECTION_STRING")}\"")
         buildConfigField("String", "AZURE_STORAGE_CONTAINER", "\"${getSecret("AZURE_STORAGE_CONTAINER", "milo-photos")}\"")
+        buildConfigField("String", "AZURE_FEEDBACK_CONTAINER", "\"${getSecret("AZURE_FEEDBACK_CONTAINER", "milo-feedback")}\"")
     }
 
     buildTypes {

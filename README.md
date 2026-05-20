@@ -9,6 +9,7 @@ This scanning behavior is intended as an addition to the repository’s original
 - Reads new images from MediaStore
 - Sends each new image to Azure Custom Vision Prediction API
 - Logs matches when the configured target tag exceeds the configured probability threshold
+- Lets users quickly correct labels in the upload history and queues corrected samples for reinforcement learning uploads
 
 ## Configuration
 Set these properties in `gradle.properties` (or override through CI/local properties):
@@ -17,6 +18,7 @@ Set these properties in `gradle.properties` (or override through CI/local proper
 - `AZURE_CUSTOM_VISION_PREDICTION_KEY` - prediction key
 - `AZURE_TARGET_TAG` - tag name to match (defaults to `cat`)
 - `AZURE_TARGET_PROBABILITY` - minimum probability threshold (defaults to `0.8`)
+- `AZURE_FEEDBACK_CONTAINER` - container used to store user-corrected training samples (defaults to `milo-feedback`)
 
 ## Permissions
 The app requires:

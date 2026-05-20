@@ -24,21 +24,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,6 +70,7 @@ class MainActivity : ComponentActivity() {
 fun UploadHistoryScreen(recordDao: UploadRecordDao) {
     val records by recordDao.getAllRecords().collectAsState(initial = emptyList())
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(),
@@ -116,14 +121,38 @@ fun UploadHistoryScreen(recordDao: UploadRecordDao) {
 
         LazyColumn {
             items(records) { record ->
-                UploadRecordItem(record)
+                UploadRecordItem(
+                    record = record,
+                    onCorrectionSelected = { correctedLabel ->
+                        val normalizedLabel = correctedLabel.lowercase()
+                        scope.launch {
+                            recordDao.setCorrection(record.id, normalizedLabel, ReinforcementStatus.PENDING)
+                            val request = OneTimeWorkRequestBuilder<ReinforcementFeedbackWorker>()
+                                .setInputData(
+                                    Data.Builder()
+                                        .putLong(ReinforcementFeedbackWorker.KEY_RECORD_ID, record.id)
+                                        .putString(ReinforcementFeedbackWorker.KEY_CORRECTED_LABEL, normalizedLabel)
+                                        .build()
+                                )
+                                .build()
+                            WorkManager.getInstance(context).enqueueUniqueWork(
+                                "reinforcement_${record.id}",
+                                ExistingWorkPolicy.REPLACE,
+                                request,
+                            )
+                        }
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-fun UploadRecordItem(record: UploadRecord) {
+fun UploadRecordItem(
+    record: UploadRecord,
+    onCorrectionSelected: (String) -> Unit = {},
+) {
     val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     val dateString = dateFormat.format(Date(record.timestamp))
 
@@ -152,6 +181,29 @@ fun UploadRecordItem(record: UploadRecord) {
                 Text(text = "Blob ID: ${record.azureBlobId}", style = MaterialTheme.typography.bodySmall)
                 Text(text = "Iteration: ${record.iterationName}", style = MaterialTheme.typography.bodySmall)
                 Text(text = "Date: $dateString", style = MaterialTheme.typography.bodySmall)
+                if (!record.correctedLabel.isNullOrBlank()) {
+                    Text(
+                        text = "Corrected Label: ${record.correctedLabel}",
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(text = "Reinforcement: ${record.reinforcementStatus}", style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(
+                        onClick = { onCorrectionSelected("milo") },
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Mark Milo")
+                    }
+                    FilledTonalButton(
+                        onClick = { onCorrectionSelected("not_milo") },
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Mark Not Milo")
+                    }
+                }
             }
         }
     }

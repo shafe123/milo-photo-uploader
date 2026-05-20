@@ -8,6 +8,7 @@ import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -89,5 +90,36 @@ class UploadRecordDaoTest {
             assertEquals("blob1", list[1].azureBlobId)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun setCorrectionUpdatesLabelAndStatus() = runTest {
+        val record = UploadRecord(
+            localUri = "uri1",
+            azureBlobId = "blob1",
+            confidence = 0.5,
+            isMiloDetected = false,
+            iterationName = "v1",
+        )
+
+        dao.insert(record)
+        var id = -1L
+        dao.getAllRecords().test {
+            val list = awaitItem()
+            id = list[0].id
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        dao.setCorrection(id, "milo", ReinforcementStatus.PENDING)
+        val pending = dao.getRecordById(id)
+        assertEquals("milo", pending?.correctedLabel)
+        assertEquals(ReinforcementStatus.PENDING, pending?.reinforcementStatus)
+        dao.setReinforcementSyncStatus(id, ReinforcementStatus.SYNCED, 1234L)
+
+        val updated = dao.getRecordById(id)
+        assertNotNull(updated)
+        assertEquals("milo", updated?.correctedLabel)
+        assertEquals(ReinforcementStatus.SYNCED, updated?.reinforcementStatus)
+        assertEquals(1234L, updated?.reinforcementSyncedAt)
     }
 }
