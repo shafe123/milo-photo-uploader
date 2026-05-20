@@ -116,18 +116,18 @@ class AzureBlobUploader(
     }
 
     internal fun buildFeedbackBlobName(originalBlobId: String, fileName: String): String {
-        val normalizedFileName = fileName
-            .trim()
-            .trim('/')
-            .replace('/', '_')
-            .replace('\\', '_')
-        val normalizedSourceId = originalBlobId
-            .trim()
-            .trim('/')
-            .replace('/', '_')
-            .replace('\\', '_')
+        val normalizedFileName = normalizeBlobNameSegment(fileName)
+        val normalizedSourceId = normalizeBlobNameSegment(originalBlobId)
             .ifBlank { normalizedFileName }
         return "feedback/$normalizedSourceId"
+    }
+
+    private fun normalizeBlobNameSegment(value: String): String {
+        return value
+            .trim()
+            .trim('/')
+            .replace('/', '_')
+            .replace('\\', '_')
     }
 
     private fun getFileName(context: Context, uri: Uri): String? {
