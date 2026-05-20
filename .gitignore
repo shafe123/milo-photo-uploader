@@ -1,6 +1,9 @@
 # Gradle files
 .gradle/
 build/
+gradlew
+gradlew.bat
+gradle/wrapper/
 
 # Android Studio / IntelliJ
 .idea/workspace.xml

@@ -32,45 +32,10 @@ class PhotoScanWorker(
         val nowSeconds = System.currentTimeMillis() / 1000
 
         val images = queryRecentPhotos(lastScanSeconds)
-        val config = AzureConfig(
-            endpoint = BuildConfig.AZURE_ENDPOINT,
-            projectId = BuildConfig.AZURE_PROJECT_ID,
-            iterationName = BuildConfig.AZURE_ITERATION_NAME,
-            predictionKey = BuildConfig.AZURE_PREDICTION_KEY,
-            targetTags = setOf("milo", "both"),
-            threshold = BuildConfig.AZURE_THRESHOLD,
-        )
-        val visionClient = AzureCustomVisionClient(config)
-        val uploader = AzureBlobUploader(
-            connectionString = BuildConfig.AZURE_STORAGE_CONNECTION_STRING,
-            containerName = BuildConfig.AZURE_STORAGE_CONTAINER
-        )
-        val database = MiloDatabase.getDatabase(applicationContext)
-        val recordDao = database.uploadRecordDao()
+        val processor = PhotoProcessor(applicationContext)
 
         images.forEach { imageUri ->
-            val confidence = visionClient.getMiloConfidence(imageUri, applicationContext)
-            val isMiloDetected = confidence >= config.threshold
-
-            // Upload the photo and set metadata (just like the Python script)
-            val blobId = uploader.uploadPhoto(
-                photoUri = imageUri,
-                context = applicationContext,
-                isMiloPresent = isMiloDetected,
-                confidence = confidence,
-                iterationName = config.iterationName
-            )
-
-            if (blobId != null) {
-                val record = UploadRecord(
-                    localUri = imageUri.toString(),
-                    azureBlobId = blobId,
-                    confidence = confidence,
-                    isMiloDetected = isMiloDetected,
-                    iterationName = config.iterationName
-                )
-                recordDao.insert(record)
-            }
+            processor.processPhoto(imageUri)
         }
 
         prefs.edit { putLong(KEY_LAST_SCAN_SECONDS, nowSeconds) }

@@ -3,7 +3,10 @@ package com.shafe.milo
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +32,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import coil.compose.AsyncImage
@@ -60,6 +64,21 @@ fun UploadHistoryScreen(recordDao: UploadRecordDao) {
     val records by recordDao.getAllRecords().collectAsState(initial = emptyList())
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(),
+        onResult = { uris ->
+            if (uris.isNotEmpty()) {
+                val data = Data.Builder()
+                    .putStringArray(ManualUploadWorker.KEY_URIS, uris.map { it.toString() }.toTypedArray())
+                    .build()
+                val request = OneTimeWorkRequestBuilder<ManualUploadWorker>()
+                    .setInputData(data)
+                    .build()
+                WorkManager.getInstance(context).enqueue(request)
+            }
+        }
+    )
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -69,11 +88,19 @@ fun UploadHistoryScreen(recordDao: UploadRecordDao) {
                 text = "Upload History",
                 style = MaterialTheme.typography.headlineMedium
             )
-            Button(onClick = {
-                val request = OneTimeWorkRequestBuilder<PhotoScanWorker>().build()
-                WorkManager.getInstance(context).enqueue(request)
-            }) {
-                Text("Scan Now")
+            Row {
+                Button(onClick = {
+                    launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) {
+                    Text("Select Photos")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = {
+                    val request = OneTimeWorkRequestBuilder<PhotoScanWorker>().build()
+                    WorkManager.getInstance(context).enqueue(request)
+                }) {
+                    Text("Scan Now")
+                }
             }
         }
 
