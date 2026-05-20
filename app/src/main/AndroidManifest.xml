@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".MiloApplication"
+        android:allowBackup="true"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="Milo Photo Uploader"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MiloPhotoUploader">
+        <receiver
+            android:name=".BootCompletedReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
