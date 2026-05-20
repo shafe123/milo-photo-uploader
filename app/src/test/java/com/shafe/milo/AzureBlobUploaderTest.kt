@@ -39,4 +39,14 @@ class AzureBlobUploaderTest {
 
         assertEquals("feedback/folder_sub_photo-123.jpg", blobName)
     }
+
+    @Test
+    fun `buildFeedbackBlobName normalizes path separators from fileName fallback`() {
+        val blobName = uploader.buildFeedbackBlobName(
+            originalBlobId = "",
+            fileName = "folder\\sub/photo-123.jpg",
+        )
+
+        assertEquals("feedback/folder_sub_photo-123.jpg", blobName)
+    }
 }
