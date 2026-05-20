@@ -23,7 +23,7 @@ object PhotoScanScheduler {
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
             ExistingPeriodicWorkPolicy.UPDATE,
-            request
+            request,
         )
     }
 }

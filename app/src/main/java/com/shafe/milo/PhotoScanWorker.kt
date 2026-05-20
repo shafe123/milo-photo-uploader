@@ -7,12 +7,13 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
 class PhotoScanWorker(
     appContext: Context,
-    workerParams: WorkerParameters
+    workerParams: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -31,20 +32,35 @@ class PhotoScanWorker(
         val nowSeconds = System.currentTimeMillis() / 1000
 
         val images = queryRecentPhotos(lastScanSeconds)
-        val visionClient = AzureCustomVisionClient(
-            predictionUrl = BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_URL,
-            predictionKey = BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_KEY,
-            targetTag = BuildConfig.AZURE_TARGET_TAG,
-            minimumProbability = BuildConfig.AZURE_TARGET_PROBABILITY
+        val config = AzureConfig(
+            endpoint = BuildConfig.AZURE_ENDPOINT,
+            projectId = BuildConfig.AZURE_PROJECT_ID,
+            iterationName = BuildConfig.AZURE_ITERATION_NAME,
+            predictionKey = BuildConfig.AZURE_PREDICTION_KEY,
+            targetTags = setOf("milo", "both"),
+            threshold = BuildConfig.AZURE_THRESHOLD,
+        )
+        val visionClient = AzureCustomVisionClient(config)
+        val uploader = AzureBlobUploader(
+            connectionString = BuildConfig.AZURE_STORAGE_CONNECTION_STRING,
+            containerName = BuildConfig.AZURE_STORAGE_CONTAINER
         )
 
         images.forEach { imageUri ->
-            if (visionClient.containsTargetCat(imageUri, applicationContext)) {
-                Log.i(TAG, "Detected target cat in photo: $imageUri")
-            }
+            val confidence = visionClient.getMiloConfidence(imageUri, applicationContext)
+            val isMiloDetected = confidence >= config.threshold
+
+            // Upload the photo and set metadata (just like the Python script)
+            uploader.uploadPhoto(
+                photoUri = imageUri,
+                context = applicationContext,
+                isMiloPresent = isMiloDetected,
+                confidence = confidence,
+                iterationName = config.iterationName
+            )
         }
 
-        prefs.edit().putLong(KEY_LAST_SCAN_SECONDS, nowSeconds).apply()
+        prefs.edit { putLong(KEY_LAST_SCAN_SECONDS, nowSeconds) }
         return Result.success()
     }
 
@@ -59,8 +75,8 @@ class PhotoScanWorker(
     }
 
     private fun isAzureConfigured(): Boolean {
-        return BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_URL.isNotBlank() &&
-            BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_KEY.isNotBlank()
+        return BuildConfig.AZURE_ENDPOINT.isNotBlank() &&
+            BuildConfig.AZURE_PREDICTION_KEY.isNotBlank()
     }
 
     private fun queryRecentPhotos(lastScanSeconds: Long): List<Uri> {

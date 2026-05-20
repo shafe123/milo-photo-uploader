@@ -7,10 +7,14 @@ import org.junit.Test
 class AzureCustomVisionClientTest {
 
     private val client = AzureCustomVisionClient(
-        predictionUrl = "https://example.com/predict",
-        predictionKey = "dummy",
-        targetTag = "milo",
-        minimumProbability = 0.8
+        AzureConfig(
+            endpoint = "https://example.com",
+            projectId = "project-id",
+            iterationName = "iteration-1",
+            predictionKey = "dummy",
+            targetTags = setOf("milo", "both"),
+            threshold = 0.8,
+        )
     )
 
     @Test
@@ -24,7 +28,8 @@ class AzureCustomVisionClientTest {
             }
         """.trimIndent()
 
-        assertTrue(client.isTargetCat(response))
+        val confidence = client.parseMaxConfidence(response)
+        assertTrue(confidence >= 0.8)
     }
 
     @Test
@@ -37,6 +42,7 @@ class AzureCustomVisionClientTest {
             }
         """.trimIndent()
 
-        assertFalse(client.isTargetCat(response))
+        val confidence = client.parseMaxConfidence(response)
+        assertFalse(confidence >= 0.8)
     }
 }
