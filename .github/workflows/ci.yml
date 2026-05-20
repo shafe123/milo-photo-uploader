@@ -19,7 +19,9 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Run Lint
         run: ./gradlew lintDebug
@@ -40,7 +42,9 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
@@ -67,7 +71,9 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
@@ -107,7 +113,10 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+
+      - name: Setup Gradle
+        if: steps.changed-files.outputs.code_changed == 'true'
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build Release App Bundle (AAB)
         if: steps.changed-files.outputs.code_changed == 'true'

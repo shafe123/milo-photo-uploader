@@ -16,13 +16,13 @@ class AzureBlobUploader(
         isMiloPresent: Boolean,
         confidence: Double,
         iterationName: String
-    ) {
+    ): String? {
         if (connectionString.isBlank()) {
             Log.w(TAG, "Azure Storage not configured, skipping upload.")
-            return
+            return null
         }
 
-        runCatching {
+        return runCatching {
             val blobServiceClient = BlobServiceClientBuilder()
                 .connectionString(connectionString)
                 .buildClient()
@@ -52,9 +52,10 @@ class AzureBlobUploader(
             blobClient.setHttpHeaders(BlobHttpHeaders().setContentType("image/jpeg"))
 
             Log.i(TAG, "Uploaded $blobName to Azure with metadata: $metadata")
+            blobName
         }.onFailure {
             Log.e(TAG, "Failed to upload photo to Azure", it)
-        }
+        }.getOrNull()
     }
 
     companion object {

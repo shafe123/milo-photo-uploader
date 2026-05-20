@@ -45,19 +45,32 @@ class PhotoScanWorker(
             connectionString = BuildConfig.AZURE_STORAGE_CONNECTION_STRING,
             containerName = BuildConfig.AZURE_STORAGE_CONTAINER
         )
+        val database = MiloDatabase.getDatabase(applicationContext)
+        val recordDao = database.uploadRecordDao()
 
         images.forEach { imageUri ->
             val confidence = visionClient.getMiloConfidence(imageUri, applicationContext)
             val isMiloDetected = confidence >= config.threshold
 
             // Upload the photo and set metadata (just like the Python script)
-            uploader.uploadPhoto(
+            val blobId = uploader.uploadPhoto(
                 photoUri = imageUri,
                 context = applicationContext,
                 isMiloPresent = isMiloDetected,
                 confidence = confidence,
                 iterationName = config.iterationName
             )
+
+            if (blobId != null) {
+                val record = UploadRecord(
+                    localUri = imageUri.toString(),
+                    azureBlobId = blobId,
+                    confidence = confidence,
+                    isMiloDetected = isMiloDetected,
+                    iterationName = config.iterationName
+                )
+                recordDao.insert(record)
+            }
         }
 
         prefs.edit { putLong(KEY_LAST_SCAN_SECONDS, nowSeconds) }
