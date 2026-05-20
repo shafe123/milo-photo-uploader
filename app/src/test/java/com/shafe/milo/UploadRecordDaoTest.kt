@@ -110,7 +110,10 @@ class UploadRecordDaoTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        dao.setCorrection(id, "milo")
+        dao.setCorrection(id, "milo", ReinforcementStatus.PENDING)
+        val pending = dao.getRecordById(id)
+        assertEquals("milo", pending?.correctedLabel)
+        assertEquals(ReinforcementStatus.PENDING, pending?.reinforcementStatus)
         dao.setReinforcementSyncStatus(id, ReinforcementStatus.SYNCED, 1234L)
 
         val updated = dao.getRecordById(id)

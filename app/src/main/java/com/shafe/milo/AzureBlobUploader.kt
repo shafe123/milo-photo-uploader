@@ -89,7 +89,11 @@ class AzureBlobUploader(
             val fileName = getFileName(context, photoUri)
                 ?: photoUri.lastPathSegment
                 ?: "photo_${System.currentTimeMillis()}.jpg"
-            val blobName = "feedback/${System.currentTimeMillis()}_${correctedLabel}_$fileName"
+            val safeLabel = correctedLabel
+                .lowercase()
+                .replace(Regex("[^a-z0-9_-]"), "_")
+                .ifBlank { "unknown" }
+            val blobName = "feedback/${System.currentTimeMillis()}_${safeLabel}_$fileName"
             val blobClient = containerClient.getBlobClient(blobName)
 
             context.contentResolver.openInputStream(photoUri)?.use { inputStream ->

@@ -124,22 +124,23 @@ fun UploadHistoryScreen(recordDao: UploadRecordDao) {
                 UploadRecordItem(
                     record = record,
                     onCorrectionSelected = { correctedLabel ->
+                        val normalizedLabel = correctedLabel.lowercase()
                         scope.launch {
-                            recordDao.setCorrection(record.id, correctedLabel)
-                        }
-                        val request = OneTimeWorkRequestBuilder<ReinforcementFeedbackWorker>()
-                            .setInputData(
-                                Data.Builder()
-                                    .putLong(ReinforcementFeedbackWorker.KEY_RECORD_ID, record.id)
-                                    .putString(ReinforcementFeedbackWorker.KEY_CORRECTED_LABEL, correctedLabel)
-                                    .build()
+                            recordDao.setCorrection(record.id, normalizedLabel, ReinforcementStatus.PENDING)
+                            val request = OneTimeWorkRequestBuilder<ReinforcementFeedbackWorker>()
+                                .setInputData(
+                                    Data.Builder()
+                                        .putLong(ReinforcementFeedbackWorker.KEY_RECORD_ID, record.id)
+                                        .putString(ReinforcementFeedbackWorker.KEY_CORRECTED_LABEL, normalizedLabel)
+                                        .build()
+                                )
+                                .build()
+                            WorkManager.getInstance(context).enqueueUniqueWork(
+                                "reinforcement_${record.id}",
+                                ExistingWorkPolicy.REPLACE,
+                                request,
                             )
-                            .build()
-                        WorkManager.getInstance(context).enqueueUniqueWork(
-                            "reinforcement_${record.id}",
-                            ExistingWorkPolicy.REPLACE,
-                            request,
-                        )
+                        }
                     },
                 )
             }

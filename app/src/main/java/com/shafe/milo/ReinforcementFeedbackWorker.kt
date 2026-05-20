@@ -13,8 +13,11 @@ class ReinforcementFeedbackWorker(
 
     override suspend fun doWork(): Result {
         val recordId = inputData.getLong(KEY_RECORD_ID, -1L)
-        val correctedLabel = inputData.getString(KEY_CORRECTED_LABEL).orEmpty()
+        val correctedLabel = inputData.getString(KEY_CORRECTED_LABEL).orEmpty().lowercase()
         if (recordId <= 0L || correctedLabel.isBlank()) {
+            return Result.failure()
+        }
+        if (correctedLabel !in ALLOWED_LABELS) {
             return Result.failure()
         }
 
@@ -49,5 +52,6 @@ class ReinforcementFeedbackWorker(
         const val KEY_RECORD_ID = "record_id"
         const val KEY_CORRECTED_LABEL = "corrected_label"
         private const val TAG = "ReinforcementFeedback"
+        private val ALLOWED_LABELS = setOf("milo", "not_milo")
     }
 }

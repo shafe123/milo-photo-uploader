@@ -27,7 +27,7 @@ interface UploadRecordDao {
             "SET correctedLabel = :correctedLabel, reinforcementStatus = :status, reinforcementSyncedAt = NULL " +
             "WHERE id = :recordId"
     )
-    suspend fun setCorrection(recordId: Long, correctedLabel: String, status: String = ReinforcementStatus.PENDING)
+    suspend fun setCorrection(recordId: Long, correctedLabel: String, status: String)
 
     @Query(
         "UPDATE upload_records " +
