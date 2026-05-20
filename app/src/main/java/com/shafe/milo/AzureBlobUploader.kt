@@ -89,11 +89,7 @@ class AzureBlobUploader(
             val fileName = getFileName(context, photoUri)
                 ?: photoUri.lastPathSegment
                 ?: "photo_${System.currentTimeMillis()}.jpg"
-            val safeLabel = correctedLabel
-                .lowercase()
-                .replace(Regex("[^a-z0-9_-]"), "_")
-                .ifBlank { "unknown" }
-            val blobName = "feedback/${System.currentTimeMillis()}_${safeLabel}_$fileName"
+            val blobName = buildFeedbackBlobName(originalBlobId, fileName)
             val blobClient = containerClient.getBlobClient(blobName)
 
             context.contentResolver.openInputStream(photoUri)?.use { inputStream ->
@@ -152,6 +148,21 @@ class AzureBlobUploader(
         }.onFailure {
             Log.e(TAG, "Failed to update metadata for blob $blobName", it)
         }.getOrDefault(false)
+    }
+
+    internal fun buildFeedbackBlobName(originalBlobId: String, fileName: String): String {
+        val normalizedFileName = normalizeBlobNameSegment(fileName)
+        val normalizedSourceId = normalizeBlobNameSegment(originalBlobId)
+            .ifBlank { normalizedFileName }
+        return "feedback/$normalizedSourceId"
+    }
+
+    private fun normalizeBlobNameSegment(value: String): String {
+        return value
+            .trim()
+            .trim('/')
+            .replace('/', '_')
+            .replace('\\', '_')
     }
 
     private fun getFileName(context: Context, uri: Uri): String? {
