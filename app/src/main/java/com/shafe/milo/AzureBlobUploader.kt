@@ -89,11 +89,7 @@ class AzureBlobUploader(
             val fileName = getFileName(context, photoUri)
                 ?: photoUri.lastPathSegment
                 ?: "photo_${System.currentTimeMillis()}.jpg"
-            val safeLabel = correctedLabel
-                .lowercase()
-                .replace(Regex("[^a-z0-9_-]"), "_")
-                .ifBlank { "unknown" }
-            val blobName = "feedback/${System.currentTimeMillis()}_${safeLabel}_$fileName"
+            val blobName = buildFeedbackBlobName(originalBlobId, fileName)
             val blobClient = containerClient.getBlobClient(blobName)
 
             context.contentResolver.openInputStream(photoUri)?.use { inputStream ->
@@ -117,6 +113,11 @@ class AzureBlobUploader(
         }.onFailure {
             Log.e(TAG, "Failed to upload reinforcement sample", it)
         }.getOrNull()
+    }
+
+    internal fun buildFeedbackBlobName(originalBlobId: String, fileName: String): String {
+        val normalizedSourceId = originalBlobId.trim('/').ifBlank { fileName }
+        return "feedback/$normalizedSourceId"
     }
 
     private fun getFileName(context: Context, uri: Uri): String? {
