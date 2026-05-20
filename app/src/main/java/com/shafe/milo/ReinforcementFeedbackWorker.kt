@@ -52,6 +52,6 @@ class ReinforcementFeedbackWorker(
         const val KEY_RECORD_ID = "record_id"
         const val KEY_CORRECTED_LABEL = "corrected_label"
         private const val TAG = "ReinforcementFeedback"
-        private val ALLOWED_LABELS = setOf("milo", "not_milo")
+        private val ALLOWED_LABELS = setOf("milo", "emilio", "both", "neither")
     }
 }
