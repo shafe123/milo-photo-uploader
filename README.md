@@ -1,6 +1,8 @@
 # milo-photo-uploader
 
 Android app that runs in the background, scans newly taken photos, and checks for a specific cat using an Azure Cognitive Services Custom Vision model.
+This scanning behavior is intended as an addition to the repository’s original Milo photo upload workflow, so detected photos can still be forwarded to downstream storage/social automation pipelines.
+
 
 ## What it does
 - Schedules a periodic background scan using WorkManager

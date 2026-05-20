@@ -30,6 +30,7 @@ class AzureCustomVisionClient(
 
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
+                Log.w(TAG, "Azure prediction request failed with HTTP $responseCode")
                 false
             } else {
                 val body = connection.inputStream.bufferedReader().use { it.readText() }

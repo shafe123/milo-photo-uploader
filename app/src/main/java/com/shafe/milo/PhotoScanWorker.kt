@@ -21,7 +21,7 @@ class PhotoScanWorker(
             return Result.success()
         }
 
-        if (BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_URL.isBlank() || BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_KEY.isBlank()) {
+        if (!isAzureConfigured()) {
             Log.w(TAG, "Skipping scan; Azure Custom Vision is not configured")
             return Result.success()
         }
@@ -56,6 +56,11 @@ class PhotoScanWorker(
         }
 
         return ContextCompat.checkSelfPermission(applicationContext, permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun isAzureConfigured(): Boolean {
+        return BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_URL.isNotBlank() &&
+            BuildConfig.AZURE_CUSTOM_VISION_PREDICTION_KEY.isNotBlank()
     }
 
     private fun queryRecentPhotos(lastScanSeconds: Long): List<Uri> {
