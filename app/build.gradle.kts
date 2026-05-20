@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -15,13 +17,24 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField("String", "AZURE_ENDPOINT", "\"${project.findProperty("AZURE_ENDPOINT") ?: ""}\"")
-        buildConfigField("String", "AZURE_PROJECT_ID", "\"${project.findProperty("AZURE_PROJECT_ID") ?: ""}\"")
-        buildConfigField("String", "AZURE_ITERATION_NAME", "\"${project.findProperty("AZURE_ITERATION_NAME") ?: ""}\"")
-        buildConfigField("String", "AZURE_PREDICTION_KEY", "\"${project.findProperty("AZURE_PREDICTION_KEY") ?: ""}\"")
-        buildConfigField("double", "AZURE_THRESHOLD", project.findProperty("AZURE_THRESHOLD")?.toString() ?: "0.8")
-        buildConfigField("String", "AZURE_STORAGE_CONNECTION_STRING", "\"${project.findProperty("AZURE_STORAGE_CONNECTION_STRING") ?: ""}\"")
-        buildConfigField("String", "AZURE_STORAGE_CONTAINER", "\"${project.findProperty("AZURE_STORAGE_CONTAINER") ?: "milo-photos"}\"")
+        val localProperties = Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) {
+                file.inputStream().use { load(it) }
+            }
+        }
+
+        fun getSecret(key: String, default: String = ""): String {
+            return (project.findProperty(key) ?: localProperties.getProperty(key) ?: default).toString()
+        }
+
+        buildConfigField("String", "AZURE_ENDPOINT", "\"${getSecret("AZURE_ENDPOINT")}\"")
+        buildConfigField("String", "AZURE_PROJECT_ID", "\"${getSecret("AZURE_PROJECT_ID")}\"")
+        buildConfigField("String", "AZURE_ITERATION_NAME", "\"${getSecret("AZURE_ITERATION_NAME")}\"")
+        buildConfigField("String", "AZURE_PREDICTION_KEY", "\"${getSecret("AZURE_PREDICTION_KEY")}\"")
+        buildConfigField("double", "AZURE_THRESHOLD", getSecret("AZURE_THRESHOLD", "0.8"))
+        buildConfigField("String", "AZURE_STORAGE_CONNECTION_STRING", "\"${getSecret("AZURE_STORAGE_CONNECTION_STRING")}\"")
+        buildConfigField("String", "AZURE_STORAGE_CONTAINER", "\"${getSecret("AZURE_STORAGE_CONTAINER", "milo-photos")}\"")
     }
 
     buildTypes {

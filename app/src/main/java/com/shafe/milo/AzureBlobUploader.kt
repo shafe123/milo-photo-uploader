@@ -3,6 +3,7 @@ package com.shafe.milo
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import android.provider.OpenableColumns
 import com.azure.storage.blob.BlobServiceClientBuilder
 import com.azure.storage.blob.models.BlobHttpHeaders
 
@@ -32,7 +33,10 @@ class AzureBlobUploader(
                 containerClient.create()
             }
 
-            val blobName = photoUri.lastPathSegment ?: "photo_${System.currentTimeMillis()}.jpg"
+            val blobName = getFileName(context, photoUri) 
+                ?: photoUri.lastPathSegment 
+                ?: "photo_${System.currentTimeMillis()}.jpg"
+            
             val blobClient = containerClient.getBlobClient(blobName)
 
             context.contentResolver.openInputStream(photoUri)?.use { inputStream ->
@@ -48,14 +52,29 @@ class AzureBlobUploader(
             )
             blobClient.setMetadata(metadata)
 
-            // Set content type to image/jpeg
-            blobClient.setHttpHeaders(BlobHttpHeaders().setContentType("image/jpeg"))
+            // Set correct content type
+            val contentType = context.contentResolver.getType(photoUri) ?: "image/jpeg"
+            blobClient.setHttpHeaders(BlobHttpHeaders().setContentType(contentType))
 
             Log.i(TAG, "Uploaded $blobName to Azure with metadata: $metadata")
             blobName
         }.onFailure {
             Log.e(TAG, "Failed to upload photo to Azure", it)
         }.getOrNull()
+    }
+
+    private fun getFileName(context: Context, uri: Uri): String? {
+        if (uri.scheme == "content") {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index != -1) {
+                        return cursor.getString(index)
+                    }
+                }
+            }
+        }
+        return null
     }
 
     companion object {
