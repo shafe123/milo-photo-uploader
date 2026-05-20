@@ -190,18 +190,48 @@ fun UploadRecordItem(
                     Text(text = "Reinforcement: ${record.reinforcementStatus}", style = MaterialTheme.typography.bodySmall)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(
-                        onClick = { onCorrectionSelected("milo") },
-                        modifier = Modifier.height(32.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Mark Milo")
+                        FilledTonalButton(
+                            onClick = { onCorrectionSelected("milo") },
+                            modifier = Modifier
+                                .height(32.dp)
+                                .weight(1f)
+                        ) {
+                            Text("Milo")
+                        }
+                        FilledTonalButton(
+                            onClick = { onCorrectionSelected("emilio") },
+                            modifier = Modifier
+                                .height(32.dp)
+                                .weight(1f)
+                        ) {
+                            Text("Emilio")
+                        }
                     }
-                    FilledTonalButton(
-                        onClick = { onCorrectionSelected("not_milo") },
-                        modifier = Modifier.height(32.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Mark Not Milo")
+                        FilledTonalButton(
+                            onClick = { onCorrectionSelected("both") },
+                            modifier = Modifier
+                                .height(32.dp)
+                                .weight(1f)
+                        ) {
+                            Text("Both")
+                        }
+                        FilledTonalButton(
+                            onClick = { onCorrectionSelected("neither") },
+                            modifier = Modifier
+                                .height(32.dp)
+                                .weight(1f)
+                        ) {
+                            Text("Neither")
+                        }
                     }
                 }
             }
