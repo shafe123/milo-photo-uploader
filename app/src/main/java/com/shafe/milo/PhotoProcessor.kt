@@ -25,6 +25,13 @@ class PhotoProcessor(private val context: Context) {
 
     suspend fun processPhoto(imageUri: Uri) {
         runCatching {
+            // Check for duplicate before processing
+            val existing = recordDao.getRecordByUri(imageUri.toString())
+            if (existing != null) {
+                Log.i(TAG, "Skipping duplicate photo: $imageUri")
+                return
+            }
+
             val confidence = visionClient.getMiloConfidence(imageUri, context)
             val isMiloDetected = confidence >= config.threshold
 
@@ -36,16 +43,14 @@ class PhotoProcessor(private val context: Context) {
                 iterationName = config.iterationName
             )
 
-            if (blobId != null) {
-                val record = UploadRecord(
-                    localUri = imageUri.toString(),
-                    azureBlobId = blobId,
-                    confidence = confidence,
-                    isMiloDetected = isMiloDetected,
-                    iterationName = config.iterationName
-                )
-                recordDao.insert(record)
-            }
+            val record = UploadRecord(
+                localUri = imageUri.toString(),
+                azureBlobId = blobId ?: "FAILED_OR_SKIPPED",
+                confidence = confidence,
+                isMiloDetected = isMiloDetected,
+                iterationName = config.iterationName
+            )
+            recordDao.insert(record)
         }.onFailure {
             Log.e(TAG, "Failed to process photo: $imageUri", it)
         }

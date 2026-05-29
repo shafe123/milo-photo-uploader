@@ -1,6 +1,10 @@
 package com.shafe.milo
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -22,21 +26,43 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -52,14 +78,43 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val database = MiloDatabase.getDatabase(applicationContext)
         val recordDao = database.uploadRecordDao()
+        val scrapeLogDao = database.scrapeLogDao()
 
         setContent {
+            var selectedTab by remember { mutableIntStateOf(0) }
+            val snackbarHostState = remember { SnackbarHostState() }
+
             MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    UploadHistoryScreen(recordDao)
+                Scaffold(
+                    snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                    bottomBar = {
+                        NavigationBar {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                                label = { Text("Uploads") }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                icon = { Icon(Icons.Default.List, contentDescription = null) },
+                                label = { Text("Scrapes") }
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        when (selectedTab) {
+                            0 -> UploadHistoryScreen(recordDao, snackbarHostState)
+                            1 -> ScrapeHistoryScreen(scrapeLogDao)
+                        }
+                    }
                 }
             }
         }
@@ -67,10 +122,29 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun UploadHistoryScreen(recordDao: UploadRecordDao) {
+fun UploadHistoryScreen(recordDao: UploadRecordDao, snackbarHostState: SnackbarHostState) {
     val records by recordDao.getAllRecords().collectAsState(initial = emptyList())
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+    var hasPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            hasPermission = isGranted
+        }
+    )
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(),
@@ -90,60 +164,223 @@ fun UploadHistoryScreen(recordDao: UploadRecordDao) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Upload History",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Row {
-                Button(onClick = {
-                    launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }) {
-                    Text("Select Photos")
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Upload History",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (!hasPermission) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Media Permission Required",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Text(
+                        text = "The app needs access to your photos to scan for Milo.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { permissionLauncher.launch(permission) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Grant Permission")
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = {
+            }
+        }
+
+        Row {
+            Button(onClick = {
+                launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }) {
+                Text("Select Photos")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
                     val request = OneTimeWorkRequestBuilder<PhotoScanWorker>().build()
                     WorkManager.getInstance(context).enqueue(request)
-                }) {
-                    Text("Scan Now")
+                },
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = {
+                            context.getSharedPreferences("milo-photo-scan", Context.MODE_PRIVATE)
+                                .edit().clear().apply()
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Scanner reset! Scanning everything...")
+                            }
+                            val request = OneTimeWorkRequestBuilder<PhotoScanWorker>().build()
+                            WorkManager.getInstance(context).enqueue(request)
+                        }
+                    )
                 }
+            ) {
+                Text("Scan Now")
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn {
-            items(records) { record ->
-                UploadRecordItem(
-                    record = record,
-                    onCorrectionSelected = { correctedLabel ->
-                        val normalizedLabel = correctedLabel.lowercase()
-                        scope.launch {
-                            recordDao.setCorrection(record.id, normalizedLabel, ReinforcementStatus.PENDING)
-                            val request = OneTimeWorkRequestBuilder<ReinforcementFeedbackWorker>()
-                                .setInputData(
-                                    Data.Builder()
-                                        .putLong(ReinforcementFeedbackWorker.KEY_RECORD_ID, record.id)
-                                        .putString(ReinforcementFeedbackWorker.KEY_CORRECTED_LABEL, normalizedLabel)
-                                        .build()
-                                )
-                                .build()
-                            WorkManager.getInstance(context).enqueueUniqueWork(
-                                "reinforcement_${record.id}",
-                                ExistingWorkPolicy.REPLACE,
-                                request,
-                            )
-                        }
-                    },
+        if (records.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No photos processed yet.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Tap 'Scan Now' to look for Milo!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "(Long-press 'Scan Now' to re-scan all photos)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f)
+            ) {
+                items(records) { record ->
+                    UploadRecordItem(
+                        record = record,
+                        onCorrectionSelected = { correctedLabel ->
+                            val normalizedLabel = correctedLabel.lowercase()
+                            scope.launch {
+                                recordDao.setCorrection(record.id, normalizedLabel, ReinforcementStatus.PENDING)
+                                val request = OneTimeWorkRequestBuilder<ReinforcementFeedbackWorker>()
+                                    .setInputData(
+                                        Data.Builder()
+                                            .putLong(ReinforcementFeedbackWorker.KEY_RECORD_ID, record.id)
+                                            .putString(ReinforcementFeedbackWorker.KEY_CORRECTED_LABEL, normalizedLabel)
+                                            .build()
+                                    )
+                                    .build()
+                                WorkManager.getInstance(context).enqueueUniqueWork(
+                                    "reinforcement_${record.id}",
+                                    ExistingWorkPolicy.REPLACE,
+                                    request,
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ScrapeHistoryScreen(scrapeLogDao: ScrapeLogDao) {
+    val logs by scrapeLogDao.getAllLogs().collectAsState(initial = emptyList())
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Scrape History",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (logs.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No scan records yet.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Background scans will appear here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f)
+            ) {
+                items(logs) { log ->
+                    ScrapeLogItem(log)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ScrapeLogItem(log: ScrapeLog) {
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    val dateString = dateFormat.format(Date(log.timestamp))
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "Scrape Date: $dateString", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "Photos Found: ${log.photosFound}")
+            Text(text = "Photos Processed: ${log.photosUploaded}")
+            if (!log.message.isNullOrBlank()) {
+                Text(text = "Note: ${log.message}", style = MaterialTheme.typography.bodySmall)
+            }
+            Text(
+                text = "Status: ${log.status}",
+                color = when (log.status) {
+                    "SUCCESS" -> MaterialTheme.colorScheme.primary
+                    "SKIPPED" -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.error
+                }
+            )
         }
     }
 }

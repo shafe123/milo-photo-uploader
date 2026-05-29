@@ -1,9 +1,13 @@
 package com.shafe.milo
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "upload_records")
+@Entity(
+    tableName = "upload_records",
+    indices = [Index(value = ["localUri"], unique = true)]
+)
 data class UploadRecord(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val localUri: String,
